@@ -2,7 +2,7 @@ import express from 'express';
 import { Provider } from 'oidc-provider';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
-import { LRUCache } from 'lru-cache';
+import CustomMemoryAdapter from './oidc-provider-src/custom-memory-adapter.js';
 
 dotenv.config();
 
@@ -147,6 +147,7 @@ const configuration = {
   // adapter: function(name) {
   //   return new CustomAdapter(name);
   // }
+  adapter: CustomMemoryAdapter,
 };
 
 const provider = new Provider(process.env.ISSUER_BASE_URL, configuration);
