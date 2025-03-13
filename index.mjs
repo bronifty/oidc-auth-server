@@ -91,6 +91,11 @@ const configuration = {
     keys: [process.env.COOKIE_KEY || crypto.randomBytes(32).toString('hex')]
   },
   
+  // PKCE configuration
+  pkce: {
+    required: () => false
+  },
+  
   // // Define your clients (applications that can request authentication)
   // clients: [{
   //   client_id: 'example-client',
@@ -134,32 +139,8 @@ const configuration = {
   
   // Custom error handling
   renderError: async (ctx, out, error) => {
-    ctx.type = 'html';
-    ctx.body = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Error Page</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 2rem; }
-            .error-container { max-width: 600px; margin: 0 auto; border: 1px solid #ddd; padding: 2rem; border-radius: 4px; }
-            h1 { color: #e74c3c; }
-            .error-details { background: #f8f9fa; padding: 1rem; border-radius: 4px; }
-          </style>
-        </head>
-        <body>
-          <div class="error-container">
-            <h1>Authentication Error</h1>
-            <p>An error occurred during the authentication process.</p>
-            <div class="error-details">
-              <p><strong>Error:</strong> ${error}</p>
-              <p><strong>Error Description:</strong> ${out.error_description}</p>
-            </div>
-            <p><a href="/">Return to Home</a></p>
-          </div>
-        </body>
-      </html>
-    `;
+    ctx.type = 'json';
+    ctx.body = JSON.stringify(error);
   },
   
   // // Configure the adapter
