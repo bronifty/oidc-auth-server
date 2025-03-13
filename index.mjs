@@ -88,7 +88,7 @@ const app = express();
 const configuration = {
   // Required: Secure cookies with keys for signing and encryption
   cookies: {
-    keys: [crypto.randomBytes(32).toString('hex'), crypto.randomBytes(32).toString('hex')]
+    keys: [process.env.COOKIE_KEY || crypto.randomBytes(32).toString('hex')]
   },
   
   // // Define your clients (applications that can request authentication)
