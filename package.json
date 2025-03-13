@@ -1,0 +1,19 @@
+{
+  "name": "auth-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "DEBUG=express:* npx nodemon index.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "packageManager": "pnpm@10.6.1+sha512.40ee09af407fa9fbb5fbfb8e1cb40fbb74c0af0c3e10e9224d7b53c7658528615b2c92450e74cfad91e3a2dcafe3ce4050d80bda71d757756d2ce2b66213e9a3",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "lru-cache": "^11.0.2",
+    "oidc-provider": "^8.8.1"
+  }
+}
