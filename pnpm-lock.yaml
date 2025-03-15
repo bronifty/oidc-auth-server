@@ -14,6 +14,9 @@ importers:
       express:
         specifier: ^4.21.2
         version: 4.21.2
+      jose:
+        specifier: ^6.0.10
+        version: 6.0.10
       lru-cache:
         specifier: ^11.0.2
         version: 11.0.2
@@ -284,6 +287,9 @@ packages:
 
   jose@5.10.0:
     resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
+
+  jose@6.0.10:
+    resolution: {integrity: sha512-skIAxZqcMkOrSwjJvplIPYrlXGpxTPnro2/QWTDCxAdWQrSTV5/KqspMWmi5WAx5+ULswASJiZ0a+1B/Lxt9cw==}
 
   jsesc@3.1.0:
     resolution: {integrity: sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA==}
@@ -817,6 +823,8 @@ snapshots:
       hasown: 2.0.2
 
   jose@5.10.0: {}
+
+  jose@6.0.10: {}
 
   jsesc@3.1.0: {}
 

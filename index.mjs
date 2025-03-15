@@ -2,7 +2,8 @@ import express from 'express';
 import { Provider } from 'oidc-provider';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
-import CustomMemoryAdapter from './oidc-provider-src/custom-memory-adapter.js';
+import CustomMemoryAdapter from './utils/custom-memory-adapter.js';
+import { generateKeyPair, exportJWK } from 'jose';
 
 dotenv.config();
 
@@ -84,104 +85,92 @@ const app = express();
 //   }
 // }
 
-// Configuration for the OIDC Provider
-const configuration = {
-  // Required: Secure cookies with keys for signing and encryption
-  cookies: {
-    keys: [process.env.COOKIE_KEY || crypto.randomBytes(32).toString('hex')]
-  },
+// Function to generate JWKS
+async function generateJWKS() {
+  const { privateKey } = await generateKeyPair('RS256', { extractable: true });
+  const jwk = await exportJWK(privateKey);
   
-  // PKCE configuration
-  pkce: {
-    required: () => false
-  },
+  // Add key identifiers
+  jwk.kid = 'sig-key-1';
+  jwk.use = 'sig';
   
-  // // Define your clients (applications that can request authentication)
-  // clients: [{
-  //   client_id: 'example-client',
-  //   client_secret: 'example-secret',
-  //   redirect_uris: ['http://localhost:3000/callback'],
-  //   response_types: ['code'],
-  //   grant_types: ['authorization_code', 'refresh_token']
-  // }],
+  return { keys: [jwk] };
+}
+
+// Initialize the OIDC provider
+async function initializeProvider() {
+  // Generate the JWKS
+  const jwks = await generateJWKS();
   
-  // // Configure JWT token settings
-  // jwks: {
-  //   keys: [
-  //     {
-  //       kty: 'RSA',
-  //       kid: 'default-sig',
-  //       use: 'sig',
-  //       alg: 'RS256',
-  //       d: crypto.randomBytes(32).toString('base64url'),
-  //       e: 'AQAB',
-  //       n: crypto.randomBytes(32).toString('base64url'),
-  //       p: crypto.randomBytes(16).toString('base64url'),
-  //       q: crypto.randomBytes(16).toString('base64url'),
-  //       dp: crypto.randomBytes(16).toString('base64url'),
-  //       dq: crypto.randomBytes(16).toString('base64url'),
-  //       qi: crypto.randomBytes(16).toString('base64url')
-  //     }
-  //   ]
-  // },
+  // Configuration for the OIDC Provider
+  const configuration = {
+    // Required: Secure cookies with keys for signing and encryption
+    cookies: {
+      keys: [process.env.COOKIE_KEY || crypto.randomBytes(32).toString('hex')]
+    },
+    
+    // PKCE configuration
+    pkce: {
+      required: () => false
+    },
+    
+    // // Define your clients (applications that can request authentication)
+    // clients: [{
+    //   client_id: 'example-client',
+    //   client_secret: 'example-secret',
+    //   redirect_uris: ['http://localhost:3000/callback'],
+    //   response_types: ['code'],
+    //   grant_types: ['authorization_code', 'refresh_token']
+    // }],
+    
+    // JWT signing keys
+    jwks,
+    
+    // // Disable development interactions
+    // features: {
+    //   devInteractions: { enabled: false }
+    // },
+    
+    // // Configure custom login and consent pages
+    // interactions: {
+    //   url(ctx, interaction) {
+    //     return `/interaction/${interaction.uid}`;
+    //   }
+    // },
+    
+    // Custom error handling
+    renderError: async (ctx, out, error) => {
+      ctx.type = 'json';
+      ctx.body = JSON.stringify(error);
+    },
+    
+    // // Configure the adapter
+    // adapter: function(name) {
+    //   return new CustomAdapter(name);
+    // }
+    adapter: CustomMemoryAdapter,
+  };
+
+  // Create the provider
+  const provider = new Provider(process.env.ISSUER_BASE_URL, configuration);
   
-  // // Disable development interactions
-  // features: {
-  //   devInteractions: { enabled: false }
-  // },
+  // Set up routes
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  app.use('/oidc', provider.callback());
   
-  // // Configure custom login and consent pages
-  // interactions: {
-  //   url(ctx, interaction) {
-  //     return `/interaction/${interaction.uid}`;
-  //   }
-  // },
+  app.get('/', (req, res) => {
+    res.send('Hello World');
+  });
   
-  // Custom error handling
-  renderError: async (ctx, out, error) => {
-    ctx.type = 'json';
-    ctx.body = JSON.stringify(error);
-  },
-  
-  // // Configure the adapter
-  // adapter: function(name) {
-  //   return new CustomAdapter(name);
-  // }
-  adapter: CustomMemoryAdapter,
-};
+  // Start the server
+  app.listen(process.env.PORT, () => {
+    console.log(`Server is running on port ${process.env.PORT}`);
+  });
+}
 
-const provider = new Provider(process.env.ISSUER_BASE_URL, configuration);
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Basic interaction routes for login and consent
-app.get('/interaction/:uid', (req, res) => {
-  res.send(`
-    <form method="post" action="/interaction/${req.params.uid}/login">
-      <input type="text" name="login" placeholder="Login" />
-      <input type="password" name="password" placeholder="Password" />
-      <button type="submit">Sign-in</button>
-    </form>
-  `);
-});
-
-app.post('/interaction/:uid/login', (req, res) => {
-  // In a real app, you would validate credentials here
-  // For now, we'll just approve the login
-  provider.interactionFinished(req, res, {
-    login: {
-      accountId: 'user123'
-    }
-  }, { mergeWithLastSubmission: false });
-});
-
-app.use('/oidc', provider.callback());
-
-app.get('/', (req, res) => {
-  res.send('Hello World');
-});
-
-app.listen(process.env.PORT, () => {
-  console.log(`Server is running on port ${process.env.PORT}`);
+// Start the server
+initializeProvider().catch(err => {
+  console.error('Failed to initialize provider:', err);
+  process.exit(1);
 });
