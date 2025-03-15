@@ -93,6 +93,7 @@ async function generateJWKS() {
   // Add key identifiers
   jwk.kid = 'sig-key-1';
   jwk.use = 'sig';
+  console.log(jwk);
   
   return { keys: [jwk] };
 }
