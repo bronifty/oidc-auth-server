@@ -93,15 +93,38 @@ async function generateJWKS() {
   // Add key identifiers
   jwk.kid = 'sig-key-1';
   jwk.use = 'sig';
-  console.log(jwk);
   
   return { keys: [jwk] };
 }
 
+// Parse JWKS from environment variable or generate new ones
+async function getJWKS() {
+  if (process.env.JWKS) {
+    try {
+      // Decode base64 JWKS from environment variable
+      const jwksString = Buffer.from(process.env.JWKS, 'base64').toString();
+      const jwk = JSON.parse(jwksString);
+      
+      // Ensure the JWK has the required properties
+      if (!jwk.kid) jwk.kid = 'sig-key-1';
+      if (!jwk.use) jwk.use = 'sig';
+      
+      return { keys: [jwk] };
+    } catch (error) {
+      console.warn('Failed to parse JWKS from environment variable:', error.message);
+      console.warn('Falling back to generating new JWKS');
+      return generateJWKS();
+    }
+  }
+  
+  // If no JWKS in environment variable, generate new ones
+  return generateJWKS();
+}
+
 // Initialize the OIDC provider
 async function initializeProvider() {
-  // Generate the JWKS
-  const jwks = await generateJWKS();
+  // Get JWKS from environment or generate new ones
+  const jwks = await getJWKS();
   
   // Configuration for the OIDC Provider
   const configuration = {

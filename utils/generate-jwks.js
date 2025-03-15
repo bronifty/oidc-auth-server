@@ -1,7 +1,11 @@
 const { generateKeyPair, exportJWK } = require('jose');
 
 (async () => {
-    const { privateKey } = await generateKeyPair('RS256');
+    const { privateKey } = await generateKeyPair('RS256', {
+        extractable: true,
+        use: 'sig',
+        key_ops: ['sign', 'verify']
+    });
     const jwk = await exportJWK(privateKey);
     console.log(JSON.stringify(jwk));
 })();
