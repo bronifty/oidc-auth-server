@@ -1,99 +1,26 @@
-import express from 'express';
-import { Provider } from 'oidc-provider';
-import dotenv from 'dotenv';
-import crypto from 'crypto';
-import CustomMemoryAdapter from './utils/custom-memory-adapter.js';
-import { generateKeyPair, exportJWK } from 'jose';
+import express from "express";
+import { Provider } from "oidc-provider";
+import dotenv from "dotenv";
+import crypto from "crypto";
+import CustomMemoryAdapter from "./utils/custom-memory-adapter.js";
+import { generateKeyPair, exportJWK } from "jose";
 
 dotenv.config();
-
 const app = express();
-
-// // Custom in-memory adapter using LRU Cache
-// class CustomAdapter {
-//   constructor(model) {
-//     this.model = model;
-//     this.cache = new LRUCache({
-//       max: 1000,
-//       ttl: 1000 * 60 * 60 // 1 hour
-//     });
-//   }
-
-//   async upsert(id, payload, expiresIn) {
-//     const key = `${this.model}:${id}`;
-    
-//     const expiresAt = expiresIn ? new Date(Date.now() + expiresIn * 1000) : undefined;
-    
-//     this.cache.set(key, {
-//       payload,
-//       ...(expiresAt ? { expiresAt } : undefined),
-//     });
-    
-//     return undefined;
-//   }
-
-//   async find(id) {
-//     const key = `${this.model}:${id}`;
-//     const data = this.cache.get(key);
-    
-//     if (!data) return undefined;
-//     if (data.expiresAt && data.expiresAt < new Date()) {
-//       this.cache.delete(key);
-//       return undefined;
-//     }
-    
-//     return data.payload;
-//   }
-
-//   async findByUserCode(userCode) {
-//     const values = [...this.cache.values()];
-//     const found = values.find((val) => val.payload.userCode === userCode);
-//     if (!found) return undefined;
-//     return found.payload;
-//   }
-
-//   async findByUid(uid) {
-//     const values = [...this.cache.values()];
-//     const found = values.find((val) => val.payload.uid === uid);
-//     if (!found) return undefined;
-//     return found.payload;
-//   }
-
-//   async destroy(id) {
-//     const key = `${this.model}:${id}`;
-//     this.cache.delete(key);
-//     return undefined;
-//   }
-
-//   async revokeByGrantId(grantId) {
-//     const values = [...this.cache.entries()];
-//     values.forEach(([key, val]) => {
-//       if (val.payload.grantId === grantId) {
-//         this.cache.delete(key);
-//       }
-//     });
-//   }
-
-//   async consume(id) {
-//     const key = `${this.model}:${id}`;
-//     const data = this.cache.get(key);
-//     if (data) {
-//       data.payload.consumed = Math.floor(Date.now() / 1000);
-//       this.cache.set(key, data);
-//     }
-//     return undefined;
-//   }
-// }
 
 // Function to generate JWKS
 async function generateJWKS() {
-  const { privateKey } = await generateKeyPair('RS256', { extractable: true });
+  const { privateKey } = await generateKeyPair("RS256", {
+    extractable: true,
+    use: "sig",
+    key_ops: ["sign", "verify"],
+  });
   const jwk = await exportJWK(privateKey);
-  
+
   // Add key identifiers
-  jwk.kid = 'sig-key-1';
-  jwk.use = 'sig';
-  
+  jwk.kid = "sig-key-1";
+  jwk.use = "sig";
+
   return { keys: [jwk] };
 }
 
@@ -102,21 +29,24 @@ async function getJWKS() {
   if (process.env.JWKS) {
     try {
       // Decode base64 JWKS from environment variable
-      const jwksString = Buffer.from(process.env.JWKS, 'base64').toString();
+      const jwksString = Buffer.from(process.env.JWKS, "base64").toString();
       const jwk = JSON.parse(jwksString);
-      
+
       // Ensure the JWK has the required properties
-      if (!jwk.kid) jwk.kid = 'sig-key-1';
-      if (!jwk.use) jwk.use = 'sig';
-      
+      if (!jwk.kid) jwk.kid = "sig-key-1";
+      if (!jwk.use) jwk.use = "sig";
+
       return { keys: [jwk] };
     } catch (error) {
-      console.warn('Failed to parse JWKS from environment variable:', error.message);
-      console.warn('Falling back to generating new JWKS');
+      console.warn(
+        "Failed to parse JWKS from environment variable:",
+        error.message
+      );
+      console.warn("Falling back to generating new JWKS");
       return generateJWKS();
     }
   }
-  
+
   // If no JWKS in environment variable, generate new ones
   return generateJWKS();
 }
@@ -125,68 +55,43 @@ async function getJWKS() {
 async function initializeProvider() {
   // Get JWKS from environment or generate new ones
   const jwks = await getJWKS();
-  
+
   // Configuration for the OIDC Provider
   const configuration = {
     // Required: Secure cookies with keys for signing and encryption
     cookies: {
-      keys: [process.env.COOKIE_KEY || crypto.randomBytes(32).toString('hex')]
+      keys: [process.env.COOKIE_KEY || crypto.randomBytes(32).toString("hex")],
     },
-    
+
     // PKCE configuration
     pkce: {
-      required: () => false
+      required: () => false,
     },
-    
-    // // Define your clients (applications that can request authentication)
-    // clients: [{
-    //   client_id: 'example-client',
-    //   client_secret: 'example-secret',
-    //   redirect_uris: ['http://localhost:3000/callback'],
-    //   response_types: ['code'],
-    //   grant_types: ['authorization_code', 'refresh_token']
-    // }],
-    
+
     // JWT signing keys
     jwks,
-    
-    // // Disable development interactions
-    // features: {
-    //   devInteractions: { enabled: false }
-    // },
-    
-    // // Configure custom login and consent pages
-    // interactions: {
-    //   url(ctx, interaction) {
-    //     return `/interaction/${interaction.uid}`;
-    //   }
-    // },
-    
+
     // Custom error handling
     renderError: async (ctx, out, error) => {
-      ctx.type = 'json';
+      ctx.type = "json";
       ctx.body = JSON.stringify(error);
     },
-    
-    // // Configure the adapter
-    // adapter: function(name) {
-    //   return new CustomAdapter(name);
-    // }
+
     adapter: CustomMemoryAdapter,
   };
 
   // Create the provider
   const provider = new Provider(process.env.ISSUER_BASE_URL, configuration);
-  
+
   // Set up routes
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-  app.use('/oidc', provider.callback());
-  
-  app.get('/', (req, res) => {
-    res.send('Hello World');
+  app.use("/oidc", provider.callback());
+
+  app.get("/", (req, res) => {
+    res.send("Hello World");
   });
-  
+
   // Start the server
   app.listen(process.env.PORT, () => {
     console.log(`Server is running on port ${process.env.PORT}`);
@@ -194,7 +99,7 @@ async function initializeProvider() {
 }
 
 // Start the server
-initializeProvider().catch(err => {
-  console.error('Failed to initialize provider:', err);
+initializeProvider().catch((err) => {
+  console.error("Failed to initialize provider:", err);
   process.exit(1);
 });
